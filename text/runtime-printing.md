@@ -45,7 +45,9 @@ written in a separate file called `tests.rs`.
 
 ## Module
 
-Here the pallet is defined with annotation `#[frame_support::pallet]` like this:
+Here the pallet is enabled as `dev` mode by annotating with
+[`#[frame_support::pallet]`](https://paritytech.github.io/substrate/master/frame_support/attr.pallet.html#dev-mode-palletdev_mode)
+attribute like this:
 
 ```rust, ignore
 #[frame_support::pallet]
@@ -54,21 +56,33 @@ pub mod pallet {
 }
 ```
 
+> `#[frame_support::pallet]` attribute shouldn't be used on a pallet to be deployed on production.
+> Remove this before deployment.
+
 Inside this module, we define the pallet's traits, dispatchable calls, and storage items.
 
 ---
 
 Next, you'll find imports inside that come from various parts of the Substrate framework. All
 pallets will import from a few common crates including
-[`frame-support`](https://substrate.dev/rustdocs/v3.0.0/frame_support/index.html), and
-[`frame-system`](https://substrate.dev/rustdocs/v3.0.0/frame_system/index.html). Complex pallets
-will have many imports. The `hello-substrate` pallet uses these imports.
+[`frame-support`](https://paritytech.github.io/substrate/master/frame_support/index.html), and
+[`frame-system`](https://paritytech.github.io/substrate/master/frame_system/index.html). Complex
+pallets will have many imports. The `hello-substrate` pallet uses these imports.
 
 ```rust, ignore
-use frame_support::{debug, decl_module, dispatch::DispatchResult};
-use frame_system::ensure_signed;
+use frame_support::{dispatch::DispatchResultWithPostInfo, pallet_prelude::*};
+use frame_system::pallet_prelude::*;
 use sp_runtime::print;
 ```
+
+where,
+
+- [`frame_support::dispatch::DispatchResultWithPostInfo`](https://paritytech.github.io/substrate/master/frame_support/dispatch/type.DispatchResultWithPostInfo.html)
+  is a type alias for `Result<(), DispatchError>` with an additional `PostDispatchInfo` field. This
+  is the return type of a dispatchable call.
+- [`frame_support::pallet_prelude::*`](https://paritytech.github.io/substrate/master/frame_support/pallet_prelude/index.html)
+  is a set of commonly used types and traits that are useful when writing pallets.
+- `sp_runtime::print` is for accessing the `print` function that prints to the node log.
 
 ### Configuration Trait
 
@@ -82,15 +96,41 @@ configuration trait can remain empty, although it must still exist.
 pub trait Config: frame_system::Config {}
 ```
 
-### Pallet trait
+### Pallet Struct
+
+Need to have a placeholder
+[`#[pallet::pallet]`](https://paritytech.github.io/substrate/master/frame_support/attr.pallet.html#pallet-struct-placeholder-palletpallet-mandatory)
+to specify the pallet information.
+[`[pallet::generate_store($vis trait Store)]`](https://paritytech.github.io/substrate/master/frame_support/attr.pallet.html#palletgenerate_storevis-trait-store)
+is used to generate a `Store` trait associating all storage types. Hence, altogether the `Pallet`
+struct is annotated like this:
 
 ```rust, ignore
-	#[pallet::pallet]
-	#[pallet::generate_store(pub(super) trait Store)]
-	pub struct Pallet<T>(PhantomData<T>);
+#[pallet::pallet]
+#[pallet::generate_store(pub(super) trait Store)]
+pub struct Pallet<T>(PhantomData<T>);
 ```
 
-## Dispatchable Calls
+> Here, `PhantomData` doesn't do anything. It's just a way to communicate to the compiler that you
+> are using data in a certain way and it's up to you to express that information accurately. Read
+> [more](https://doc.rust-lang.org/nomicon/phantom-data.html).
+
+### Pallet Hooks
+
+[`#[pallet::hooks]`](https://paritytech.github.io/substrate/master/frame_support/attr.pallet.html#hooks-pallethooks-optional)
+is a optional attribute that can be used to define pallet hooks. Hooks are functions that are called
+at specific points in the block execution process. Hooks are used to execute code that depends on
+the state of the block. For example, a hook can be used to execute code that depends on the block
+number, or the block weight. Hooks are defined in the `Hooks` associated type of the pallet's
+configuration trait. The `hello-substrate` pallet does not use any hooks, so we can leave the
+`Hooks` type empty.
+
+```rust, ignore
+#[pallet::hooks]
+impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+```
+
+### Dispatchable Calls
 
 A Dispatchable call is a function that a blockchain user can call as part of an Extrinsic.
 "Extrinsic" is Substrate jargon meaning a call from outside of the chain. Most of the time they are
@@ -106,23 +146,16 @@ macro also takes care of the encoding and decoding of the call arguments.
 Also
 
 ```rust, ignore
-	#[pallet::call]
-	impl<T: Config> Pallet<T> {
-		/// Increase the value associated with a particular key
-		#[pallet::weight(10_000)]
-		pub fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-			// Ensure that the caller is a regular keypair account
-			let caller = ensure_signed(origin)?;
-
-			// Print a message
-			print("Hello World");
-			// Inspecting a variable as well
-			debug::info!("Request sent by: {:?}", caller);
-
-			// Indicate that this call succeeded
-			Ok(().into())
-		}
+#[pallet::call]
+impl<T: Config> Pallet<T> {
+	/// Increase the value associated with a particular key
+	#[pallet::weight(10_000)]
+	pub fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+		// --snip--
 	}
+
+	// More dispatchable calls could go here
+}
 ```
 
 As you can see, our `hello-substrate` pallet has a dispatchable call that takes a single argument,
@@ -165,17 +198,17 @@ recipes pallets, we will simply use the default weight as we have done here.
 Let's take a closer look at our dispatchable call.
 
 ```rust, ignore
-pub fn say_hello(origin) -> DispatchResult {
+pub fn say_hello(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
 	// Ensure that the caller is a regular keypair account
 	let caller = ensure_signed(origin)?;
 
 	// Print a message
 	print("Hello World");
-	// Inspecting variables
+	// Inspecting a variable as well
 	debug::info!("Request sent by: {:?}", caller);
 
 	// Indicate that this call succeeded
-	Ok(())
+	Ok(().into())
 }
 ```
 
