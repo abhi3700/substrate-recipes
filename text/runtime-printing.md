@@ -45,19 +45,19 @@ written in a separate file called `tests.rs`.
 
 ## Module
 
-Here the pallet is enabled as `dev` mode by annotating with
+Here the pallet is enabled as dev mode by annotating the module with
 [`#[frame_support::pallet]`](https://paritytech.github.io/substrate/master/frame_support/attr.pallet.html#dev-mode-palletdev_mode)
-attribute like this:
+attribute with `dev_mode` like this:
 
 ```rust, ignore
-#[frame_support::pallet]
+#[frame_support::pallet(dev_mode)]
 pub mod pallet {
 	// --snip--
 }
 ```
 
-> `#[frame_support::pallet]` attribute shouldn't be used on a pallet to be deployed on production.
-> Remove this before deployment.
+> `#[frame_support::pallet(dev_mode)]` attribute shouldn't be used on a pallet to be deployed on
+> production. Remove this before deployment.
 
 Inside this module, we define the pallet's traits, dispatchable calls, and storage items.
 
